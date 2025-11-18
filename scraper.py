@@ -1039,6 +1039,8 @@ def main():
                 status_text.markdown("### ✅ Scraping completed successfully!")
                 progress_bar.progress(100)
     
+# ... [All your existing code above remains 100% unchanged] ...
+
     # Display results
     if 'comparison_data' in st.session_state:
         comparison_df = st.session_state['comparison_data']
@@ -1108,46 +1110,26 @@ def main():
             # Show pricing information about Hyperpure bulk tiers
             st.info("💡 **Hyperpure Pricing:** Multiple prices separated by ' | ' indicate bulk pricing tiers (e.g., lower price per kg for larger orders)")
             
+            # === FIXED LINE: Safe removal of IsGroupHeader column ===
+            columns_to_show = [col for col in display_df.columns if col != 'IsGroupHeader']
             st.dataframe(
-                display_df.drop(columns=['IsGroupHeader']),
+                display_df[columns_to_show],
                 use_container_width=True,
                 height=600,
                 column_config={
-                    "Group": st.column_config.TextColumn(
-                        "Group",
-                        width="medium",
-                    ),
-                    "Hyperpure_Name": st.column_config.TextColumn(
-                        "🟢 Hyperpure - Item",
-                        width="large",
-                    ),
-                    "Hyperpure_Price": st.column_config.TextColumn(
-                        "Price",
-                        width="medium",
-                        help="Multiple prices show bulk discounts"
-                    ),
-                    "Hyperpure_Unit": st.column_config.TextColumn(
-                        "Unit",
-                        width="small",
-                    ),
-                    "WholesaleMandi_Name": st.column_config.TextColumn(
-                        "🔵 Wholesale Mandi - Item",
-                        width="large",
-                    ),
-                    "WholesaleMandi_Price": st.column_config.TextColumn(
-                        "Price",
-                        width="medium",
-                    ),
-                    "WholesaleMandi_Unit": st.column_config.TextColumn(
-                        "Unit",
-                        width="small",
-                    ),
+                    "Group": st.column_config.TextColumn("Group", width="medium"),
+                    "Hyperpure_Name": st.column_config.TextColumn("🟢 Hyperpure - Item", width="large"),
+                    "Hyperpure_Price": st.column_config.TextColumn("Price", width="medium", help="Multiple prices show bulk discounts"),
+                    "Hyperpure_Unit": st.column_config.TextColumn("Unit", width="small"),
+                    "WholesaleMandi_Name": st.column_config.TextColumn("🔵 Wholesale Mandi - Item", width="large"),
+                    "WholesaleMandi_Price": st.column_config.TextColumn("Price", width="medium"),
+                    "WholesaleMandi_Unit": st.column_config.TextColumn("Unit", width="small"),
                 }
             )
             
             # Count groups
             num_groups = len(display_df[display_df['Group'].str.len() > 0])
-            num_items = len(display_df[display_df['Group'].str.len() == 0])
+            num_items = len(display_df) - num_groups
             st.info(f"Showing {num_groups} groups with {num_items} items total")
             
             # Individual source data
