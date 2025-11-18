@@ -1039,8 +1039,6 @@ def main():
                 status_text.markdown("### ✅ Scraping completed successfully!")
                 progress_bar.progress(100)
     
-# === ONLY REPLACE THE DISPLAY SECTION (around line 1100+) WITH THIS FIXED VERSION ===
-
     # Display results
     if 'comparison_data' in st.session_state:
         comparison_df = st.session_state['comparison_data']
@@ -1063,71 +1061,113 @@ def main():
             
             # Download buttons
             st.subheader("📥 Download Data")
+            
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_data, excel_data = create_download_link(comparison_df)
             
             col1, col2 = st.columns(2)
             with col1:
-                st.download_button("📄 Download CSV", csv_data, f"price_comparison_{timestamp}.csv", "text/csv", use_container_width=True)
+                st.download_button(
+                    label="📄 Download CSV",
+                    data=csv_data,
+                    file_name=f"price_comparison_{timestamp}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
             with col2:
-                st.download_button("📊 Download Excel", excel_data, f"price_comparison_{timestamp}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button(
+                    label="📊 Download Excel",
+                    data=excel_data,
+                    file_name=f"price_comparison_{timestamp}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
             
+            # Side-by-side comparison view
             st.subheader("🔍 Side-by-Side Comparison")
             
+            # Search/filter
             search_term = st.text_input("🔎 Search items", "", placeholder="Type to filter items")
-            display_df = comparison_df.copy()
             
+            # Filter data
+            display_df = comparison_df.copy()
             if search_term:
-                mask = pd.Series([False] * len(display_df))
-                if 'Hyperpure_Name' in display_df.columns:
-                    mask |= display_df['Hyperpure_Name'].str.contains(search_term, case=False, na=False)
-                if 'WholesaleMandi_Name' in display_df.columns:
-                    mask |= display_df['WholesaleMandi_Name'].str.contains(search_term, case=False, na=False)
-                if 'Group' in display_df.columns:
-                    mask |= display_df['Group'].str.contains(search_term, case=False, na=False)
+                mask = (
+                    (display_df['Hyperpure_Name'].str.contains(search_term, case=False, na=False)) |
+                    (display_df['WholesaleMandi_Name'].str.contains(search_term, case=False, na=False)) |
+                    (display_df['Group'].str.contains(search_term, case=False, na=False))
+                )
                 display_df = display_df[mask]
             
+            # Display side-by-side
             st.markdown("### 📋 Grouped Comparison Table")
-            st.info("💡 **Smart Grouping:** Items are automatically grouped by type (e.g., all Cauliflower varieties together).")
-            st.info("💡 **Hyperpure Pricing:** Multiple prices separated by ' | ' indicate bulk pricing tiers.")
-
-            # === SAFE COLUMN DISPLAY (NO MORE KeyError) ===
-            safe_columns = ['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
-                          'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit']
-            columns_to_show = [col for col in safe_columns if col in display_df.columns]
+            
+            # Show pricing information
+            st.info("💡 **Smart Grouping:** Items are automatically grouped by type (e.g., all Cauliflower varieties together). Ungrouped items appear at the end.")
+            
+            # Show pricing information about Hyperpure bulk tiers
+            st.info("💡 **Hyperpure Pricing:** Multiple prices separated by ' | ' indicate bulk pricing tiers (e.g., lower price per kg for larger orders)")
             
             st.dataframe(
-                display_df[columns_to_show],
+                display_df.drop(columns=['IsGroupHeader']),
                 use_container_width=True,
                 height=600,
                 column_config={
-                    "Group": st.column_config.TextColumn("Group", width="medium"),
-                    "Hyperpure_Name": st.column_config.TextColumn("🟢 Hyperpure", width="large"),
-                    "Hyperpure_Price": st.column_config.TextColumn("Price", width="medium"),
-                    "Hyperpure_Unit": st.column_config.TextColumn("Unit", width="small"),
-                    "WholesaleMandi_Name": st.column_config.TextColumn("🔵 Wholesale Mandi", width="large"),
-                    "WholesaleMandi_Price": st.column_config.TextColumn("Price", width="medium"),
-                    "WholesaleMandi_Unit": st.column_config.TextColumn("Unit", width="small"),
+                    "Group": st.column_config.TextColumn(
+                        "Group",
+                        width="medium",
+                    ),
+                    "Hyperpure_Name": st.column_config.TextColumn(
+                        "🟢 Hyperpure - Item",
+                        width="large",
+                    ),
+                    "Hyperpure_Price": st.column_config.TextColumn(
+                        "Price",
+                        width="medium",
+                        help="Multiple prices show bulk discounts"
+                    ),
+                    "Hyperpure_Unit": st.column_config.TextColumn(
+                        "Unit",
+                        width="small",
+                    ),
+                    "WholesaleMandi_Name": st.column_config.TextColumn(
+                        "🔵 Wholesale Mandi - Item",
+                        width="large",
+                    ),
+                    "WholesaleMandi_Price": st.column_config.TextColumn(
+                        "Price",
+                        width="medium",
+                    ),
+                    "WholesaleMandi_Unit": st.column_config.TextColumn(
+                        "Unit",
+                        width="small",
+                    ),
                 }
             )
             
-            # === SAFE GROUP COUNT (NO MORE KeyError) ===
-            if 'Group' in display_df.columns:
-                num_groups = len(display_df[display_df['Group'].str.len() > 0])
-                num_items = len(display_df) - num_groups
-                st.info(f"Showing {num_groups} groups with {num_items} items total")
-            else:
-                st.info(f"Showing {len(display_df)} items")
-
+            # Count groups
+            num_groups = len(display_df[display_df['Group'].str.len() > 0])
+            num_items = len(display_df[display_df['Group'].str.len() == 0])
+            st.info(f"Showing {num_groups} groups with {num_items} items total")
+            
             # Individual source data
             with st.expander("📊 View Individual Source Data"):
                 tab1, tab2 = st.tabs(["🟢 Hyperpure", "🔵 Wholesale Mandi"])
+                
                 with tab1:
-                    st.dataframe(hyperpure_df if not hyperpure_df.empty else "No data", use_container_width=True)
+                    if not hyperpure_df.empty:
+                        st.dataframe(hyperpure_df, use_container_width=True, height=400)
+                        st.caption(f"Total: {len(hyperpure_df)} items")
+                    else:
+                        st.info("No Hyperpure data available")
+                
                 with tab2:
-                    st.dataframe(mandi_df if not mandi_df.empty else "No data", use_container_width=True)
+                    if not mandi_df.empty:
+                        st.dataframe(mandi_df, use_container_width=True, height=400)
+                        st.caption(f"Total: {len(mandi_df)} items")
+                    else:
+                        st.info("No Wholesale Mandi data available")
 
-# === REST OF YOUR CODE REMAINS 100% UNCHANGED ===
 
 if __name__ == "__main__":
     main()
