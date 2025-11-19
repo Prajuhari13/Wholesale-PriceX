@@ -47,11 +47,32 @@ class PriceScraper:
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument('--disable-gpu')
         options.add_argument('--window-size=1920,1080')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-software-rasterizer')
+        options.add_argument('--remote-debugging-port=9222')
         options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-        return driver
+        import os
+        
+        # Check if running on Streamlit Cloud
+        chromium_path = '/usr/bin/chromium'
+        
+        if os.path.exists(chromium_path):
+            # Use system chromium on Streamlit Cloud
+            options.binary_location = chromium_path
+            # Let Selenium Manager handle the driver (Selenium 4.6+)
+            driver = webdriver.Chrome(options=options)
+            return driver
+        else:
+            # Local development - use webdriver-manager
+            try:
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=options)
+                return driver
+            except Exception as e:
+                # Final fallback - let Selenium Manager handle it
+                driver = webdriver.Chrome(options=options)
+                return driver
     
     def close(self):
         """Close the browser"""
