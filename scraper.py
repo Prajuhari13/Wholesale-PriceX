@@ -717,11 +717,24 @@ def extract_base_item_name(item_name):
 def create_grouped_comparison(hyperpure_df, mandi_df):
     """Create grouped comparison with all items displayed in groups - FIXED VERSION"""
     
+    # Handle empty dataframes
+    if hyperpure_df.empty and mandi_df.empty:
+        return pd.DataFrame(columns=['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
+                                    'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit'])
+    
     hyperpure_df = hyperpure_df.copy()
     mandi_df = mandi_df.copy()
     
-    hyperpure_df['BaseItem'] = hyperpure_df['Name'].apply(extract_base_item_name)
-    mandi_df['BaseItem'] = mandi_df['Name'].apply(extract_base_item_name)
+    # Add BaseItem column
+    if not hyperpure_df.empty:
+        hyperpure_df['BaseItem'] = hyperpure_df['Name'].apply(extract_base_item_name)
+    else:
+        hyperpure_df['BaseItem'] = []
+        
+    if not mandi_df.empty:
+        mandi_df['BaseItem'] = mandi_df['Name'].apply(extract_base_item_name)
+    else:
+        mandi_df['BaseItem'] = []
     
     all_bases = set(hyperpure_df['BaseItem'].unique()) | set(mandi_df['BaseItem'].unique())
     
@@ -736,6 +749,7 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
         hp_items = hyperpure_df[hyperpure_df['BaseItem'] == base_item]
         wm_items = mandi_df[mandi_df['BaseItem'] == base_item]
         
+        # Add group header
         table_rows.append({
             'Group': f"📦 {base_item}",
             'Hyperpure_Name': '',
@@ -748,6 +762,7 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
         
         max_rows = max(len(hp_items), len(wm_items), 1)
         
+        # Add item rows
         for i in range(max_rows):
             row = {'Group': ''}
             
@@ -774,7 +789,15 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
             table_rows.append(row)
     
     result_df = pd.DataFrame(table_rows)
-    return result_df
+    
+    # Ensure all required columns exist
+    required_columns = ['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
+                       'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit']
+    for col in required_columns:
+        if col not in result_df.columns:
+            result_df[col] = ''
+    
+    return result_df[required_columns]
 
 
 def create_download_link(df):
@@ -992,10 +1015,13 @@ def main():
             
             st.info("💡 **Hyperpure Pricing:** Multiple prices separated by ' | ' indicate bulk pricing tiers (e.g., lower price per kg for larger orders)")
             
-            # Display only required columns
+            # Display only required columns - with safety checks
             display_columns = ['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
                              'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit']
-            display_df_final = display_df[display_columns] if all(col in display_df.columns for col in display_columns) else display_df
+            
+            # Only select columns that exist
+            existing_columns = [col for col in display_columns if col in display_df.columns]
+            display_df_final = display_df[existing_columns] if existing_columns else display_df
             
             st.dataframe(
                 display_df_final,
@@ -1034,9 +1060,13 @@ def main():
                 }
             )
             
-            num_groups = len(display_df[display_df['Group'].str.len() > 0])
-            num_items = len(display_df[display_df['Group'].str.len() == 0])
-            st.info(f"Showing {num_groups} groups with {num_items} items total")
+            # Count groups safely - check if Group column exists
+            if 'Group' in display_df.columns:
+                num_groups = len(display_df[display_df['Group'].str.len() > 0])
+                num_items = len(display_df[display_df['Group'].str.len() == 0])
+                st.info(f"Showing {num_groups} groups with {num_items} items total")
+            else:
+                st.info(f"Showing {len(display_df)} items total")
             
             with st.expander("📊 View Individual Source Data"):
                 tab1, tab2 = st.tabs(["🟢 Hyperpure", "🔵 Wholesale Mandi"])
