@@ -876,7 +876,7 @@ def main():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        start_button = st.button("🚀 Start Scraping", type="primary", use_container_width=True)
+        start_button = st.button("🚀 Start Scraping", type="primary", width="stretch")
     
     with col2:
         if 'comparison_data' in st.session_state:
@@ -985,7 +985,7 @@ def main():
                     data=csv_data,
                     file_name=f"price_comparison_{timestamp}.csv",
                     mime="text/csv",
-                    use_container_width=True
+                    width="stretch"
                 )
             with col2:
                 st.download_button(
@@ -993,7 +993,7 @@ def main():
                     data=excel_data,
                     file_name=f"price_comparison_{timestamp}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    width="stretch"
                 )
             
             st.subheader("🔍 Side-by-Side Comparison")
@@ -1025,7 +1025,7 @@ def main():
             
             st.dataframe(
                 display_df_final,
-                use_container_width=True,
+                width="stretch",
                 height=600,
                 column_config={
                     "Group": st.column_config.TextColumn(
@@ -1073,14 +1073,14 @@ def main():
                 
                 with tab1:
                     if not hyperpure_df.empty:
-                        st.dataframe(hyperpure_df, use_container_width=True, height=400)
+                        st.dataframe(hyperpure_df, width="stretch", height=400)
                         st.caption(f"Total: {len(hyperpure_df)} items")
                     else:
                         st.info("No Hyperpure data available")
                 
                 with tab2:
                     if not mandi_df.empty:
-                        st.dataframe(mandi_df, use_container_width=True, height=400)
+                        st.dataframe(mandi_df, width="stretch", height=400)
                         st.caption(f"Total: {len(mandi_df)} items")
                     else:
                         st.info("No Wholesale Mandi data available")
