@@ -837,7 +837,7 @@ def main():
     """Main Streamlit app"""
     st.set_page_config(
         page_title="Wholesale PriceX",
-        page_icon="🥬",
+        page_icon="💰",
         layout="wide"
     )
     
@@ -863,7 +863,7 @@ def main():
         </style>
     """, unsafe_allow_html=True)
     
-    st.title("🥬Wholesale priceX🍎")
+    st.title("Wholesale priceX🍎")
     st.markdown("**Compare prices side-by-side from Hyperpure and Wholesale Mandi**")
     st.markdown("---")
     
