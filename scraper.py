@@ -81,7 +81,7 @@ class HyperpureScraper(PriceScraper):
                 progress_callback("📱 Loading Hyperpure Fruits & Vegetables page...")
             
             self.driver.get(self.FRUITS_VEG_URL)
-            self.random_delay(6, 8) # Increased wait time
+            self.random_delay(6, 8)
             
             # Handle popups
             if progress_callback:
@@ -98,12 +98,11 @@ class HyperpureScraper(PriceScraper):
             except:
                 pass
             
-            # Scroll to load all products - MUCH MORE AGGRESSIVE
+            # Scroll to load all products
             if progress_callback:
                 progress_callback("📜 Scrolling to load ALL products (this may take 2-3 minutes)...")
             self._scroll_page()
             
-            # Additional wait to ensure all content is loaded
             time.sleep(5)
             
             # Scrape products
@@ -114,12 +113,10 @@ class HyperpureScraper(PriceScraper):
             if progress_callback:
                 progress_callback(f"✅ Found {len(all_items)} items from Hyperpure")
             
-            # If we still have very few items, try alternative method
             if len(all_items) < 10:
                 if progress_callback:
                     progress_callback("🔄 Trying alternative extraction method...")
                 
-                # Save page source for debugging
                 with open('hyperpure_debug.html', 'w', encoding='utf-8') as f:
                     f.write(self.driver.page_source)
                 
@@ -162,26 +159,22 @@ class HyperpureScraper(PriceScraper):
     def _scroll_page(self):
         """Scroll page to load all dynamic content - SUPER AGGRESSIVE"""
         try:
-            # First, wait for initial content to load
             time.sleep(4)
             
             last_height = self.driver.execute_script("return document.body.scrollHeight")
-            scroll_pause = 3 # Increased pause time
+            scroll_pause = 3
             no_change_count = 0
-            max_no_change = 5 # Allow more attempts
+            max_no_change = 5
             
-            for scroll_attempt in range(50): # Increased to 50 attempts
-                # Scroll to bottom
+            for scroll_attempt in range(50):
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(scroll_pause)
                 
-                # Calculate new scroll height
                 new_height = self.driver.execute_script("return document.body.scrollHeight")
                 
                 if new_height == last_height:
                     no_change_count += 1
                     if no_change_count >= max_no_change:
-                        # Final attempts - scroll up and down multiple times
                         for _ in range(3):
                             self.driver.execute_script("window.scrollTo(0, 0);")
                             time.sleep(2)
@@ -193,7 +186,6 @@ class HyperpureScraper(PriceScraper):
                     
                 last_height = new_height
                 
-                # Progressive scrolling - scroll in smaller increments every few attempts
                 if scroll_attempt % 3 == 0:
                     for i in range(10):
                         scroll_position = (i + 1) * (new_height // 10)
@@ -207,12 +199,10 @@ class HyperpureScraper(PriceScraper):
         """Scrape ALL products from current page - ENHANCED VERSION"""
         items = []
         try:
-            # Wait for products to load
             time.sleep(4)
             
             soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             
-            # Try ALL possible selectors comprehensively
             all_selectors = [
                 'div[class*="ProductCard"]',
                 'div[class*="product-card"]',
@@ -229,33 +219,23 @@ class HyperpureScraper(PriceScraper):
             ]
             
             products = []
-            # Try each selector and keep the best result
             for selector in all_selectors:
                 found = soup.select(selector)
                 if len(found) > len(products):
                     products = found
             
-            print(f"Method 1: Found {len(products)} product elements")
-            
-            # Method 2: Find by structure - elements with both name and price
             if len(products) < 20:
                 all_divs = soup.find_all(['div', 'article', 'section'])
                 for div in all_divs:
                     text = div.get_text()
-                    # Must have price and reasonable length
                     if re.search(r'₹\s*\d+', text) and 20 < len(text) < 600:
-                        # Check if not already in products
                         if div not in products:
                             products.append(div)
-                
-                print(f"Method 2: Total {len(products)} product elements")
             
-            # Method 3: Find by price elements and traverse up
             if len(products) < 20:
                 price_elements = soup.find_all(string=re.compile(r'₹\s*\d+'))
                 for price_elem in price_elements:
                     parent = price_elem.find_parent()
-                    # Go up 3-7 levels to find the product card
                     for level in range(3, 8):
                         if parent:
                             parent_text = parent.get_text()
@@ -265,38 +245,29 @@ class HyperpureScraper(PriceScraper):
                                     products.append(parent)
                                     break
                             parent = parent.find_parent()
-                
-                print(f"Method 3: Total {len(products)} product elements")
             
-            # Remove duplicates by comparing text content
             unique_products = []
             seen_texts = set()
             for product in products:
-                text_signature = product.get_text()[:100] # First 100 chars
+                text_signature = product.get_text()[:100]
                 if text_signature not in seen_texts:
                     seen_texts.add(text_signature)
                     unique_products.append(product)
             
-            print(f"After deduplication: {len(unique_products)} unique products")
-            
-            # Extract information from all products
             seen_items = set()
             for product in unique_products:
                 try:
                     item = self._extract_product_info(product)
                     if item:
-                        # Create unique key
                         key = f"{item['name']}|{item['price']}"
                         if key not in seen_items:
                             seen_items.add(key)
                             items.append(item)
                 except Exception as e:
                     continue
-            
-            print(f"Successfully extracted: {len(items)} items")
                     
         except Exception as e:
-            print(f"Error in scrape_all_products: {e}")
+            pass
         
         return items
     
@@ -305,32 +276,26 @@ class HyperpureScraper(PriceScraper):
         try:
             element_text = element.get_text()
             
-            # Extract name - multiple strategies
             name = None
             
-            # Strategy 1: Look for heading tags (most reliable)
             for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div']:
                 name_elems = element.find_all(tag)
                 for name_elem in name_elems:
                     text = name_elem.get_text(strip=True)
-                    # Valid name: reasonable length, not a price, not just numbers
                     if (5 < len(text) < 100 and
                         not re.match(r'^₹', text) and
                         not re.match(r'^\d+\s*(kg|gm|pc)', text, re.I) and
                         not text.lower() in ['add', 'added', 'view', 'buy']):
-                        # Check if it looks like a product name
                         if any(char.isalpha() for char in text):
                             name = text
                             break
                 if name:
                     break
             
-            # Strategy 2: Look for text before the price
             if not name:
                 lines = [line.strip() for line in element_text.split('\n') if line.strip()]
                 for i, line in enumerate(lines):
                     if re.search(r'₹\s*\d+', line):
-                        # Name is likely in the previous lines
                         if i > 0:
                             for j in range(i-1, -1, -1):
                                 potential_name = lines[j]
@@ -342,45 +307,36 @@ class HyperpureScraper(PriceScraper):
                         if name:
                             break
             
-            # Strategy 3: Find largest text block that's not a price or just a number
             if not name:
                 all_text = element.find_all(string=True)
                 candidates = []
                 for text in all_text:
                     text = text.strip()
-                    # Ensure it's not just a weight/quantity and has actual letters
                     if (10 < len(text) < 100 and
                         not re.search(r'₹\s*\d+', text) and
                         not re.match(r'^\d+(\.\d+)?\s*(kg|gm|g|pc|piece)', text, re.I) and
                         any(char.isalpha() for char in text)):
                         candidates.append(text)
                 if candidates:
-                    # Sort by length and take the longest one
                     candidates.sort(key=len, reverse=True)
                     name = candidates[0]
             
-            # Strategy 4: If still no name, try to get the first meaningful text
             if not name:
                 all_strings = [s.strip() for s in element.stripped_strings]
                 for text in all_strings:
-                    # Skip if it's just a quantity
                     if re.match(r'^\d+(\.\d+)?\s*(kg|gm|g|pc)', text, re.I):
                         continue
-                    # Skip if it's a price
                     if re.match(r'^₹', text):
                         continue
-                    # Take first meaningful text with letters
                     if len(text) > 4 and any(c.isalpha() for c in text):
                         name = text
                         break
             
-            # Extract ALL prices and their corresponding units (bulk pricing tiers)
-            # Look for patterns like "₹56/pc for 9 pcs+" or "₹57/pc for 5 pcs+"
             bulk_pricing_patterns = [
-                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*pc\s+for\s+(\d+)\s*pcs?\+', # per piece
-                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*kg\s+for\s+(\d+)\s*kgs?\+', # per kg
-                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*gm\s+for\s+(\d+)\s*gms?\+', # per gm
-                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*piece\s+for\s+(\d+)\s*pieces?\+', # per piece variant
+                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*pc\s+for\s+(\d+)\s*pcs?\+',
+                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*kg\s+for\s+(\d+)\s*kgs?\+',
+                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*gm\s+for\s+(\d+)\s*gms?\+',
+                r'₹\s*(\d+(?:\.\d+)?)\s*/\s*piece\s+for\s+(\d+)\s*pieces?\+',
             ]
             
             bulk_prices = []
@@ -389,22 +345,18 @@ class HyperpureScraper(PriceScraper):
                 if found:
                     bulk_prices.extend(found)
             
-            # Extract base unit (e.g., "5 kg" or "1 Piece" from title)
             base_unit = None
             base_unit_match = re.search(r'(\d+(?:\.\d+)?)\s*(kg|gm|g|pc|piece|pieces)', name if name else '', re.I)
             if base_unit_match:
                 base_unit = f"{base_unit_match.group(1)} {base_unit_match.group(2)}"
             
-            # Extract base price as the LAST price occurrence in the text (assuming base is listed last)
             price_matches = list(re.finditer(r'₹\s*(\d+(?:\.\d+)?)', element_text, re.I))
             main_price = None
             main_unit_type = None
             if price_matches:
-                # Take the last price match as base price
                 last_match = price_matches[-1]
                 main_price = last_match.group(1)
                 
-                # Try to extract unit type from context around the base price
                 start = last_match.start()
                 end = last_match.end()
                 context = element_text[max(0, start-50):end+50]
@@ -412,7 +364,6 @@ class HyperpureScraper(PriceScraper):
                 if unit_match:
                     main_unit_type = unit_match.group(1)
                 else:
-                    # Fallback unit detection
                     unit_patterns = [
                         r'/(kg|pc|gm|piece)',
                         r'\s(kg|pc|gm|piece)\s',
@@ -423,16 +374,12 @@ class HyperpureScraper(PriceScraper):
                             main_unit_type = unit_match.group(1)
                             break
             
-            # Construct pricing information
             pricing_info = []
             
-            # Add bulk pricing tiers (sorted from best to worst deal - largest quantity first)
             if bulk_prices:
-                # Sort by quantity (descending) to show best deals first
                 bulk_prices_sorted = sorted(bulk_prices, key=lambda x: int(x[1]), reverse=True)
                 
                 for price, qty in bulk_prices_sorted:
-                    # Determine unit type from pattern or context
                     if 'pc' in element_text.lower() or 'piece' in element_text.lower():
                         pricing_info.append(f"₹{price}/pc for {qty}pcs+")
                     elif 'kg' in element_text.lower():
@@ -440,21 +387,17 @@ class HyperpureScraper(PriceScraper):
                     else:
                         pricing_info.append(f"₹{price} for {qty}+")
             
-            # ALWAYS add base price if found
             if main_price:
                 if main_unit_type:
                     pricing_info.append(f"Base: ₹{main_price}/{main_unit_type}")
                 else:
                     pricing_info.append(f"Base: ₹{main_price}")
             
-            # Fallback: if no pricing found at all, search for any price
             if not pricing_info:
                 all_prices_in_text = re.findall(r'₹\s*(\d+(?:\.\d+)?)', element_text)
                 if all_prices_in_text:
-                    # Take the first price found
                     pricing_info.append(f"₹{all_prices_in_text[0]}")
             
-            # Extract unit/quantity if not found in bulk pricing
             unit = base_unit
             if not unit:
                 unit_patterns = [
@@ -473,40 +416,29 @@ class HyperpureScraper(PriceScraper):
                         unit = match.group(1).strip()
                         break
             
-            # Only return if we have both name and pricing
             if name and pricing_info:
-                # Clean up name - remove price info, extra whitespace
                 name = re.sub(r'₹.*', '', name).strip()
                 name = re.sub(r'\s+', ' ', name)
-                
-                # Remove common noise words
                 name = re.sub(r'\b(add|added|view|buy|select|choose)\b', '', name, flags=re.I).strip()
                 
-                # STRICT validation - reject invalid names
-                # Reject if name is ONLY a quantity or pack (e.g., "0.50 kg", "2 kg", "1 pack")
                 only_qty_pattern = r'^[\d\.\s]+(kg|gm|g|pc|piece|pieces|pack|packs)$'
                 if re.match(only_qty_pattern, name, re.I):
                     return None
                 
-                # Reject if name starts with just a number and unit
                 starts_qty_pattern = r'^\d+(\.\d+)?\s*(kg|gm|g|pc|pack)'
                 if re.match(starts_qty_pattern, name, re.I):
                     return None
                 
-                # Reject if name is too short (less than 5 characters)
                 if len(name) < 5:
                     return None
                 
-                # Reject if name is mostly numbers
                 letter_count = sum(c.isalpha() for c in name)
                 if letter_count < 3:
                     return None
                 
-                # Reject if name is just punctuation and spaces
                 if not any(c.isalnum() for c in name):
                     return None
                 
-                # Additional check: reject if name is ONLY "pack" or numeric variations
                 if re.match(r'^(pack|packs|\d+\s*pack)$', name, re.I):
                     return None
                 
@@ -527,8 +459,6 @@ class HyperpureScraper(PriceScraper):
         
         df = pd.DataFrame(items)
         df.rename(columns={'name': 'Name', 'price': 'Price', 'unit': 'Unit'}, inplace=True)
-        
-        # Remove duplicates
         df = df.drop_duplicates(subset=['Name', 'Price'], keep='first')
         
         return df
@@ -559,7 +489,6 @@ class WholesaleMandiScraper(PriceScraper):
                     self.driver.get(url)
                     self.random_delay(3, 5)
                     
-                    # Scroll to load content
                     self._scroll_page()
                     
                     items = self._scrape_page()
@@ -618,7 +547,6 @@ class WholesaleMandiScraper(PriceScraper):
                 if len(found) > len(products):
                     products = found
             
-            # Backup method
             if len(products) < 5:
                 price_elements = soup.find_all(string=re.compile(r'₹|Rs\.?\s*\d+'))
                 for price_elem in price_elements:
@@ -650,7 +578,6 @@ class WholesaleMandiScraper(PriceScraper):
     def _extract_product_info(self, element):
         """Extract product information"""
         try:
-            # Extract name
             name = None
             
             for tag in ['h1', 'h2', 'h3', 'h4', 'h5']:
@@ -672,7 +599,6 @@ class WholesaleMandiScraper(PriceScraper):
                         name = text
                         break
             
-            # Extract price
             price = None
             text_content = element.get_text()
             
@@ -688,7 +614,6 @@ class WholesaleMandiScraper(PriceScraper):
                     price = f"₹{match.group(1)}"
                     break
             
-            # Extract unit
             unit = None
             unit_patterns = [
                 r'(\d+\s*(?:kg|kgs|kilogram))',
@@ -746,20 +671,13 @@ class WholesaleMandiScraper(PriceScraper):
 
 
 def extract_base_item_name(item_name):
-    """
-    Extract base item name for smart grouping
-    E.g., 'Cauliflower (Big)' -> 'Cauliflower'
-          'Carrot Ooty' -> 'Carrot'
-    """
+    """Extract base item name for smart grouping"""
     if not item_name or not isinstance(item_name, str):
         return "Ungrouped"
     
-    # Convert to lowercase for matching
     name_lower = item_name.lower()
     
-    # Comprehensive list of fruits and vegetables
     base_items = [
-        # Vegetables
         'cauliflower', 'carrot', 'potato', 'tomato', 'onion', 'cabbage',
         'brinjal', 'eggplant', 'capsicum', 'bell pepper', 'cucumber',
         'bottle gourd', 'ridge gourd', 'bitter gourd', 'pumpkin', 'beans',
@@ -771,8 +689,6 @@ def extract_base_item_name(item_name):
         'green onion', 'fenugreek', 'methi', 'palak', 'dhaniya',
         'pudina', 'bhindi', 'karela', 'lauki', 'tinda', 'parwal',
         'arbi', 'colocasia', 'yam', 'sweet potato', 'tapioca',
-        
-        # Fruits
         'apple', 'banana', 'orange', 'mango', 'grapes', 'watermelon',
         'papaya', 'pineapple', 'pomegranate', 'guava', 'lemon', 'lime',
         'kiwi', 'strawberry', 'blueberry', 'cherry', 'peach', 'plum',
@@ -783,13 +699,10 @@ def extract_base_item_name(item_name):
         'mosambi', 'sweet lime', 'grapefruit'
     ]
     
-    # Find the base item in the name
     for base in base_items:
         if base in name_lower:
             return base.title()
     
-    # If no match, try to extract first meaningful word
-    # Remove common descriptors first
     descriptors = ['fresh', 'organic', 'premium', 'frozen', 'combo', 'pack', 'big', 'small', 'medium', 'large']
     words = item_name.split()
     
@@ -802,31 +715,27 @@ def extract_base_item_name(item_name):
 
 
 def create_grouped_comparison(hyperpure_df, mandi_df):
-    """Create grouped comparison with all items displayed in groups"""
+    """Create grouped comparison with all items displayed in groups - FIXED VERSION"""
     
-    # Add base item column to both dataframes
+    hyperpure_df = hyperpure_df.copy()
+    mandi_df = mandi_df.copy()
+    
     hyperpure_df['BaseItem'] = hyperpure_df['Name'].apply(extract_base_item_name)
     mandi_df['BaseItem'] = mandi_df['Name'].apply(extract_base_item_name)
     
-    # Get all unique base items from both sources
     all_bases = set(hyperpure_df['BaseItem'].unique()) | set(mandi_df['BaseItem'].unique())
     
-    # Separate "Ungrouped" and sort the rest
     grouped_bases = sorted([b for b in all_bases if b != "Ungrouped"])
     ungrouped_bases = ["Ungrouped"] if "Ungrouped" in all_bases else []
     
-    # Combined list: grouped items first, ungrouped last
     all_bases_sorted = grouped_bases + ungrouped_bases
     
-    # Create rows for the table
     table_rows = []
     
     for base_item in all_bases_sorted:
-        # Get items for this base from both sources
         hp_items = hyperpure_df[hyperpure_df['BaseItem'] == base_item]
         wm_items = mandi_df[mandi_df['BaseItem'] == base_item]
         
-        # Add group header row
         table_rows.append({
             'Group': f"📦 {base_item}",
             'Hyperpure_Name': '',
@@ -834,21 +743,14 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
             'Hyperpure_Unit': '',
             'WholesaleMandi_Name': '',
             'WholesaleMandi_Price': '',
-            'WholesaleMandi_Unit': '',
-            'IsGroupHeader': True
+            'WholesaleMandi_Unit': ''
         })
         
-        # Get max rows needed for this group
         max_rows = max(len(hp_items), len(wm_items), 1)
         
-        # Add item rows
         for i in range(max_rows):
-            row = {
-                'Group': '',
-                'IsGroupHeader': False
-            }
+            row = {'Group': ''}
             
-            # Hyperpure item
             if i < len(hp_items):
                 hp_row = hp_items.iloc[i]
                 row['Hyperpure_Name'] = hp_row['Name']
@@ -859,7 +761,6 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
                 row['Hyperpure_Price'] = ''
                 row['Hyperpure_Unit'] = ''
             
-            # Wholesale Mandi item
             if i < len(wm_items):
                 wm_row = wm_items.iloc[i]
                 row['WholesaleMandi_Name'] = wm_row['Name']
@@ -878,10 +779,8 @@ def create_grouped_comparison(hyperpure_df, mandi_df):
 
 def create_download_link(df):
     """Create download data for CSV and Excel"""
-    # CSV
     csv = df.to_csv(index=False, encoding='utf-8-sig')
     
-    # Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Price Comparison')
@@ -898,7 +797,6 @@ def main():
         layout="wide"
     )
     
-    # Custom CSS for better styling
     st.markdown("""
         <style>
         .comparison-container {
@@ -921,12 +819,10 @@ def main():
         </style>
     """, unsafe_allow_html=True)
     
-    # Header
     st.title("🥬Wholesale priceX🍎")
     st.markdown("**Compare prices side-by-side from Hyperpure and Wholesale Mandi**")
     st.markdown("---")
     
-    # Info section
     with st.expander("ℹ️ About this tool"):
         st.info("""
         This tool scrapes wholesale prices from:
@@ -940,7 +836,6 @@ def main():
         - ✅ Search and filter functionality
         """)
     
-    # Sidebar controls
     st.sidebar.header("⚙️ Settings")
     scrape_hyperpure = st.sidebar.checkbox("Scrape Hyperpure", value=True)
     scrape_mandi = st.sidebar.checkbox("Scrape Wholesale Mandi", value=True)
@@ -955,7 +850,6 @@ def main():
     5. Download the data
     """)
     
-    # Main content
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -967,10 +861,7 @@ def main():
         else:
             st.info("⏳ Ready to scrape")
     
-    # Progress area
     progress_container = st.container()
-    
-    # Results area
     results_container = st.container()
     
     if start_button:
@@ -978,7 +869,6 @@ def main():
             st.error("⚠️ Please select at least one source to scrape!")
             return
         
-        # Clear previous data
         for key in ['hyperpure_data', 'mandi_data', 'comparison_data']:
             if key in st.session_state:
                 del st.session_state[key]
@@ -990,7 +880,6 @@ def main():
             status_text = st.empty()
             progress_bar = st.progress(0)
             
-            # Hyperpure scraping
             if scrape_hyperpure:
                 scraper = None
                 try:
@@ -1010,7 +899,6 @@ def main():
                     if scraper:
                         scraper.close()
             
-            # Wholesale Mandi scraping
             if scrape_mandi:
                 scraper = None
                 try:
@@ -1030,7 +918,6 @@ def main():
                     if scraper:
                         scraper.close()
             
-            # Create comparison
             if scrape_hyperpure or scrape_mandi:
                 status_text.markdown("### 🔄 Creating grouped comparison view...")
                 comparison_df = create_grouped_comparison(hyperpure_df, mandi_df)
@@ -1039,7 +926,6 @@ def main():
                 status_text.markdown("### ✅ Scraping completed successfully!")
                 progress_bar.progress(100)
     
-    # Display results
     if 'comparison_data' in st.session_state:
         comparison_df = st.session_state['comparison_data']
         hyperpure_df = st.session_state.get('hyperpure_data', pd.DataFrame())
@@ -1049,7 +935,6 @@ def main():
             st.markdown("---")
             st.header("📊 Price Comparison Results")
             
-            # Summary metrics
             col1, col2, col3 = st.columns(3)
             with col1:
                 total = len(hyperpure_df) + len(mandi_df)
@@ -1059,11 +944,16 @@ def main():
             with col3:
                 st.metric("Wholesale Mandi Items", len(mandi_df))
             
-            # Download buttons
             st.subheader("📥 Download Data")
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_data, excel_data = create_download_link(comparison_df)
+            
+            # Download comparison without IsGroupHeader column
+            display_columns = ['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
+                             'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit']
+            comparison_download = comparison_df[display_columns] if all(col in comparison_df.columns for col in display_columns) else comparison_df
+            
+            csv_data, excel_data = create_download_link(comparison_download)
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1083,13 +973,10 @@ def main():
                     use_container_width=True
                 )
             
-            # Side-by-side comparison view
             st.subheader("🔍 Side-by-Side Comparison")
             
-            # Search/filter
             search_term = st.text_input("🔎 Search items", "", placeholder="Type to filter items")
             
-            # Filter data
             display_df = comparison_df.copy()
             if search_term:
                 mask = (
@@ -1099,17 +986,19 @@ def main():
                 )
                 display_df = display_df[mask]
             
-            # Display side-by-side
             st.markdown("### 📋 Grouped Comparison Table")
             
-            # Show pricing information
             st.info("💡 **Smart Grouping:** Items are automatically grouped by type (e.g., all Cauliflower varieties together). Ungrouped items appear at the end.")
             
-            # Show pricing information about Hyperpure bulk tiers
             st.info("💡 **Hyperpure Pricing:** Multiple prices separated by ' | ' indicate bulk pricing tiers (e.g., lower price per kg for larger orders)")
             
+            # Display only required columns
+            display_columns = ['Group', 'Hyperpure_Name', 'Hyperpure_Price', 'Hyperpure_Unit',
+                             'WholesaleMandi_Name', 'WholesaleMandi_Price', 'WholesaleMandi_Unit']
+            display_df_final = display_df[display_columns] if all(col in display_df.columns for col in display_columns) else display_df
+            
             st.dataframe(
-                display_df.drop(columns=['IsGroupHeader']),
+                display_df_final,
                 use_container_width=True,
                 height=600,
                 column_config={
@@ -1145,12 +1034,10 @@ def main():
                 }
             )
             
-            # Count groups
             num_groups = len(display_df[display_df['Group'].str.len() > 0])
             num_items = len(display_df[display_df['Group'].str.len() == 0])
             st.info(f"Showing {num_groups} groups with {num_items} items total")
             
-            # Individual source data
             with st.expander("📊 View Individual Source Data"):
                 tab1, tab2 = st.tabs(["🟢 Hyperpure", "🔵 Wholesale Mandi"])
                 
